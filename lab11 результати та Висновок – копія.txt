@@ -1,0 +1,140 @@
+=====================================================================
+ЛАБОРАТОРНА №11 (lab17v7, варіант 7): РЕЗУЛЬТАТИ ТА ВІДПОВІДІ
+Тема: LINQ - SelectMany, пагінація й custom extensions
+=====================================================================
+
+1. РЕЗУЛЬТАТ ВИКОНАННЯ ПРОГРАМИ (консольний вивід dotnet run)
+---------------------------------------------------------------------
+--- Запит 1: SelectMany (усі кафедри) ---
+Усього кафедр: 28
+   1. Software Engineering (320 студентів)
+   2. Computer Science (280 студентів)
+   3. Cybersecurity (150 студентів)
+   4. Microelectronics (120 студентів)
+   5. Telecommunications (200 студентів)
+   6. Machine Building (180 студентів)
+   7. Robotics (90 студентів)
+   8. Materials Science (70 студентів)
+   9. Organic Chemistry (100 студентів)
+  10. Chemical Engineering (130 студентів)
+  11. Design (140 студентів)
+  12. Urban Planning (110 студентів)
+  13. Finance (260 студентів)
+  14. Marketing (210 студентів)
+  15. Management (230 студентів)
+  16. Civil Law (190 студентів)
+  17. Criminal Law (160 студентів)
+  18. Power Systems (150 студентів)
+  19. Renewable Energy (95 студентів)
+  20. Algebra (85 студентів)
+  21. Applied Mathematics (120 студентів)
+  22. Ukrainian Philology (110 студентів)
+  23. English Philology (170 студентів)
+  24. Ecology (90 студентів)
+  25. Botany (60 студентів)
+  26. Sports Science (140 студентів)
+  27. Rehabilitation (100 студентів)
+  28. Coaching (80 студентів)
+
+--- Різниця Select та SelectMany ---
+Select:     3 елементи (кожен - список факультетів)
+SelectMany: 12 елементів (плоский список факультетів)
+
+--- Запит 2: пагінація факультетів (по 3 на сторінку) ---
+Сторінка 1 з 4:
+  Faculty of Informatics (3 кафедр)
+  Faculty of Electronics (2 кафедр)
+  Faculty of Mechanics (3 кафедр)
+Сторінка 2 з 4:
+  Faculty of Chemistry (2 кафедр)
+  Faculty of Architecture (2 кафедр)
+  Faculty of Economics (3 кафедр)
+Сторінка 3 з 4:
+  Faculty of Law (2 кафедр)
+  Faculty of Energy (2 кафедр)
+  Faculty of Mathematics (2 кафедр)
+Сторінка 4 з 4:
+  Faculty of Philology (2 кафедр)
+  Faculty of Biology (2 кафедр)
+  Faculty of Physical Education (3 кафедр)
+
+--- Запит 3: метод розширення TotalStudents() ---
+Усі кафедри: 4140 студентів
+  KPI: 1640
+  Lviv Polytechnic: 1545
+  Rivne State University: 955
+Факультет "Faculty of Informatics": 750 студентів
+Студентів на кафедрах, де їх понад 200: 1300
+
+
+2. ЩО ПОКАЗУЮТЬ РЕЗУЛЬТАТИ (коротко)
+---------------------------------------------------------------------
+ - SelectMany "розгорнув" 3 університети -> 12 факультетів -> 28 кафедр
+   в один плоский список (два SelectMany поспіль, по одному на кожен
+   рівень вкладеності).
+ - Пагінація розбила 12 факультетів на 4 сторінки по 3 (12 / 3 = 4).
+   Кількість сторінок = Math.Ceiling(кількість / розмір сторінки).
+ - Метод розширення TotalStudents() працює з будь-якою послідовністю
+   кафедр: з усіма (4140), з кафедрами одного університету (1640 / 1545 /
+   955), одного факультету (750) і навіть після Where (1300).
+   Перевірка: 1640 + 1545 + 955 = 4140.
+
+
+3. ВІДПОВІДІ НА КОНТРОЛЬНІ ПИТАННЯ
+---------------------------------------------------------------------
+
+1) Для чого використовується SelectMany? Чим відрізняється від Select?
+
+   SelectMany проєктує кожен елемент у колекцію і "розгортає" (flatten)
+   всі ці колекції в ОДНУ плоску послідовність. Select повертає рівно
+   один результат на кожен вхідний елемент; якщо цей результат - колекція,
+   то вийде колекція колекцій.
+
+   Приклад із нашої програми:
+       universities.Select(u => u.Faculties)
+           -> IEnumerable<List<Faculty>>  - 3 елементи (3 списки)
+       universities.SelectMany(u => u.Faculties)
+           -> IEnumerable<Faculty>        - 12 елементів (один список)
+
+   Для двох рівнів вкладеності SelectMany викликається двічі:
+       universities.SelectMany(u => u.Faculties)
+                   .SelectMany(f => f.Departments)    // 28 кафедр
+
+2) Як реалізувати пагінацію за допомогою LINQ? Які методи використовуються?
+
+   Двома методами:
+     Skip(n)  - пропускає перші n елементів;
+     Take(k)  - бере наступні k елементів.
+   Формула для сторінки page (нумерація з 1) та розміру pageSize:
+       items.Skip((page - 1) * pageSize).Take(pageSize)
+   Для 3 факультетів на сторінку: сторінка 1 -> Skip(0).Take(3),
+   сторінка 2 -> Skip(3).Take(3), сторінка 3 -> Skip(6).Take(3) тощо.
+   Кількість сторінок: (int)Math.Ceiling(count / (double)pageSize).
+   Перед пагінацією бажано відсортувати дані (OrderBy), щоб порядок
+   елементів на сторінках був стабільним.
+
+3) Поясніть концепцію методів розширення. Як вони інтегруються з LINQ?
+
+   Метод розширення - це статичний метод у статичному класі, у якого
+   перший параметр позначений ключовим словом this. Він викликається
+   так, ніби є методом самого типу, хоча вихідний код типу не змінювався:
+       public static int TotalStudents(this IEnumerable<Department> d) => ...
+       allDepartments.TotalStudents();
+   Сам LINQ - це набір методів розширення для IEnumerable<T>
+   (клас System.Linq.Enumerable: Where, Select, SelectMany, Skip, Take...).
+   Тому власні методи розширення для IEnumerable<T> вбудовуються в
+   ланцюжок LINQ нарівні зі стандартними:
+       allDepartments.Where(d => d.NumStudents > 200).TotalStudents();
+
+4) Приклад власного методу розширення для IEnumerable<T> та його призначення.
+
+   У проєкті є два:
+     a) TotalStudents(this IEnumerable<Department> departments)
+          => departments.Sum(d => d.NumStudents);
+        Призначення: підрахувати загальну кількість студентів у будь-якій
+        послідовності кафедр (усі кафедри, кафедри факультету чи
+        університету). Бізнес-логіка зібрана в одному місці й не
+        дублюється.
+     b) GetPage<T>(this IEnumerable<T> source, int pageNumber, int pageSize)
+          => source.Skip((pageNumber - 1) * pageSize).Take(pageSize);
+        Призначення: універсальна пагінація для будь-якої колекції.
